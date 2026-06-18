@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Analytics Dashboard — Acme Corp</title>
+  <style>
+    :root {
+      --bg-primary: #0f1117;
+      --bg-secondary: #1a1d27;
+      --bg-card: #22253a;
+      --text-primary: #e4e6f0;
+      --text-secondary: #8a8fa8;
+      --accent: #6c5ce7;
+      --accent-hover: #7f71f0;
+      --success: #00cec9;
+      --warning: #fdcb6e;
+      --danger: #e17055;
+      --sidebar-w: 240px;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      display: flex;
+      min-height: 100vh;
+    }
+    /* Sidebar */
+    .sidebar {
+      width: var(--sidebar-w);
+      background: var(--bg-secondary);
+      padding: 24px 16px;
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid rgba(255,255,255,0.06);
+    }
+    .sidebar .logo {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--accent);
+      margin-bottom: 32px;
+      letter-spacing: -0.5px;
+    }
+    .sidebar .logo span { color: var(--text-primary); }
+    .sidebar nav { display: flex; flex-direction: column; gap: 4px; }
+    .sidebar nav a {
+      color: var(--text-secondary);
+      text-decoration: none;
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 14px;
+      transition: all 0.15s;
+    }
+    .sidebar nav a:hover,
+    .sidebar nav a.active {
+      background: rgba(108,92,231,0.12);
+      color: var(--accent-hover);
+    }
+    .sidebar nav a.active { font-weight: 600; }
+    /* Main content */
+    .main {
+      flex: 1;
+      padding: 32px;
+      overflow-y: auto;
+    }
+    .main header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 28px;
+    }
+    .main header h1 { font-size: 24px; font-weight: 600; }
+    .main header p { color: var(--text-secondary); font-size: 14px; margin-top: 4px; }
+    .refresh-btn {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-size: 14px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .refresh-btn:hover { background: var(--accent-hover); }
+    /* Stat cards */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+    .stat-card {
+      background: var(--bg-card);
+      border-radius: 12px;
+      padding: 20px;
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+    .stat-card .label { font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-secondary); }
+    .stat-card .value { font-size: 28px; font-weight: 700; margin-top: 6px; }
+    .stat-card .change { font-size: 13px; margin-top: 6px; }
+    .stat-card .change.up { color: var(--success); }
+    .stat-card .change.down { color: var(--danger); }
+    /* Charts */
+    .charts-grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 16px;
+    }
+    .chart-card {
+      background: var(--bg-card);
+      border-radius: 12px;
+      padding: 20px;
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+    .chart-card h3 { font-size: 15px; margin-bottom: 16px; }
+    .chart-placeholder {
+      height: 220px;
+      background: linear-gradient(135deg, rgba(108,92,231,0.08), rgba(0,206,201,0.08));
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-secondary);
+      font-size: 13px;
+    }
+    .traffic-bar {
+      display: flex;
+      align-items: end;
+      gap: 8px;
+      height: 160px;
+      padding-top: 20px;
+    }
+    .traffic-bar .bar {
+      flex: 1;
+      background: var(--accent);
+      border-radius: 4px 4px 0 0;
+      min-height: 8px;
+      opacity: 0.7;
+    }
+    .traffic-bar .bar:nth-child(1) { height: 40%; }
+    .traffic-bar .bar:nth-child(2) { height: 65%; }
+    .traffic-bar .bar:nth-child(3) { height: 50%; }
+    .traffic-bar .bar:nth-child(4) { height: 85%; }
+    .traffic-bar .bar:nth-child(5) { height: 70%; }
+    .traffic-bar .bar:nth-child(6) { height: 95%; }
+    .traffic-bar .bar:nth-child(7) { height: 55%; }
+    /* Recent activity */
+    .activity-list { margin-top: 12px; }
+    .activity-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      font-size: 13px;
+    }
+    .activity-item:last-child { border-bottom: none; }
+    .activity-item .event { color: var(--text-primary); }
+    .activity-item .time { color: var(--text-secondary); }
+  </style>
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="logo">Acme<span>Analytics</span></div>
+    <nav>
+      <a href="#" class="active">📊 Dashboard</a>
+      <a href="#">📈 Reports</a>
+      <a href="#">👥 Users</a>
+      <a href="#">⚙️ Settings</a>
+    </nav>
+  </aside>
+
+  <div class="main">
+    <header>
+      <div>
+        <h1>Dashboard</h1>
+        <p>Your metrics for the last 30 days</p>
+      </div>
+      <button class="refresh-btn" onclick="refreshData()">Refresh Data</button>
+    </header>
+
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="label">Revenue</div>
+        <div class="value">$48,290</div>
+        <div class="change up">↑ 12.3%</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Users</div>
+        <div class="value">2,847</div>
+        <div class="change up">↑ 8.1%</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Conversion</div>
+        <div class="value">3.24%</div>
+        <div class="change down">↓ 0.4%</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Bounce Rate</div>
+        <div class="value">24.1%</div>
+        <div class="change up">↑ 2.1%</div>
+      </div>
+    </div>
+
+    <div class="charts-grid">
+      <div class="chart-card">
+        <h3>Monthly Traffic</h3>
+        <div class="traffic-bar">
+          <div class="bar"></div>
+          <div class="bar"></div>
+          <div class="bar"></div>
+          <div class="bar"></div>
+          <div class="bar"></div>
+          <div class="bar"></div>
+          <div class="bar"></div>
+        </div>
+      </div>
+      <div class="chart-card">
+        <h3>Recent Activity</h3>
+        <div class="activity-list" id="activity-list">
+          <div class="activity-item">
+            <span class="event">New user signup — alice@example.com</span>
+            <span class="time">2m ago</span>
+          </div>
+          <div class="activity-item">
+            <span class="event">Payment received — $1,200</span>
+            <span class="time">14m ago</span>
+          </div>
+          <div class="activity-item">
+            <span class="event">Server alert — CPU > 90%</span>
+            <span class="time">1h ago</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = 'https://api.acme-corp.example/v1';
+    const DASHBOARD_ID = 'd-42';
+
+    function initDashboard() {
+      console.log('[Dashboard] Initializing...');
+      loadMetrics();
+      const panel = document.getElementById('stats-panel');
+      if (panel) {
+        panel.style.border = '1px solid var(--accent)';
+      }
+    }
+
+    async function loadMetrics() {
+      try {
+        const res = await fetch(`${API_BASE}/dashboards/${DASHBOARD_ID}/metrics`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        updateCards(data);
+      } catch (err) {
+        console.error('Failed to load data', err);
+      }
+    }
+
+    function updateCards(data) {
+      const cards = document.querySelectorAll('.stat-card .value');
+      if (data.revenue) cards[0].textContent = data.revenue;
+      if (data.users) cards[1].textContent = data.users;
+      if (data.conversion) cards[2].textContent = data.conversion;
+    }
+
+    function refreshData() {}
+
+    function loadRecentActivity() {
+      const container = document.getElementById('activity-list');
+      if (!container) return;
+      const activities = [
+        { event: 'Deploy v2.4.1 to production', time: '3m ago' },
+        { event: 'New user signup — bob@example.com', time: '7m ago' },
+      ];
+      activities.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'activity-item';
+        div.innerHTML = `<span class="event">${item.event}</span><span class="time">${item.time}</span>`;
+        container.appendChild(div);
+      });
+
+    document.addEventListener('DOMContentLoaded', initDashboard);
+    loadRecentActivity();
+  </script>
+</body>
+</html>

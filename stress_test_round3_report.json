@@ -1,0 +1,209 @@
+{
+  "test_name": "maestro-guard Stress Test Round 3",
+  "passed": 24,
+  "failed": 0,
+  "critical_issues": 0,
+  "moderate_issues": 1,
+  "minor_issues": 0,
+  "info_items": 31,
+  "results": {
+    "critical": [],
+    "moderate": [
+      {
+        "test": "Empty stub not detected",
+        "category": "AI Output",
+        "issue": "Empty initDashboard function body was not caught",
+        "detail": ""
+      }
+    ],
+    "minor": [],
+    "info": [
+      {
+        "test": "XSS content handled safely",
+        "category": "Security",
+        "issue": "XSS in file content processed without injection",
+        "detail": ""
+      },
+      {
+        "test": "Path traversal - expected behavior",
+        "category": "Security",
+        "issue": "CLI reads the given path (design choice - tool reads files). No special path traversal protection (not a web server).",
+        "detail": ""
+      },
+      {
+        "test": "Traversal file path handled",
+        "category": "Security",
+        "issue": "CLI returned 0",
+        "detail": ""
+      },
+      {
+        "test": "Bomb input handled",
+        "category": "Security",
+        "issue": "100K brace bomb processed in 0.57s",
+        "detail": ""
+      },
+      {
+        "test": "Race condition OK",
+        "category": "Security",
+        "issue": "5 concurrent checks completed in 0.2s. All exit 0: True",
+        "detail": ""
+      },
+      {
+        "test": "Exhaustion handled",
+        "category": "Security",
+        "issue": "100K open braces processed in 0.30s",
+        "detail": ""
+      },
+      {
+        "test": "GuardianReport API works",
+        "category": "API",
+        "issue": "All methods: __init__, add_check, add_fix, score, all_passed, failing_checks",
+        "detail": ""
+      },
+      {
+        "test": "Individual check functions work",
+        "category": "API",
+        "issue": "All 5 check functions importable and callable with correct signatures",
+        "detail": ""
+      },
+      {
+        "test": "Serialization methods work",
+        "category": "API",
+        "issue": "to_dict(), to_json(), summary() all produce valid output",
+        "detail": ""
+      },
+      {
+        "test": "Multiple reports chaining works",
+        "category": "API",
+        "issue": "Created 5 reports, serialized combined JSON (1571 chars)",
+        "detail": ""
+      },
+      {
+        "test": "Raw string checks work",
+        "category": "API",
+        "issue": "All 5 check functions work on raw HTML strings (no files needed)",
+        "detail": ""
+      },
+      {
+        "test": "CLI works on Python 3.10",
+        "category": "PythonCompat",
+        "issue": "Exit code 0",
+        "detail": ""
+      },
+      {
+        "test": "JSON output works on Python 3.10",
+        "category": "PythonCompat",
+        "issue": "Score: 85",
+        "detail": ""
+      },
+      {
+        "test": "CLI works on Python 3.11",
+        "category": "PythonCompat",
+        "issue": "Exit code 0",
+        "detail": ""
+      },
+      {
+        "test": "JSON output works on Python 3.11",
+        "category": "PythonCompat",
+        "issue": "Score: 85",
+        "detail": ""
+      },
+      {
+        "test": "CLI works on Python 3.11",
+        "category": "PythonCompat",
+        "issue": "Exit code 0",
+        "detail": ""
+      },
+      {
+        "test": "JSON output works on Python 3.11",
+        "category": "PythonCompat",
+        "issue": "Score: 85",
+        "detail": ""
+      },
+      {
+        "test": "CRLF handled",
+        "category": "Platform",
+        "issue": "CRLF line endings processed correctly (exit 0)",
+        "detail": ""
+      },
+      {
+        "test": "Mixed line endings OK",
+        "category": "Platform",
+        "issue": "Mixed CRLF/LF processed correctly",
+        "detail": ""
+      },
+      {
+        "test": "Null byte handled",
+        "category": "Platform",
+        "issue": "Null byte content processed (exit 0)",
+        "detail": ""
+      },
+      {
+        "test": "Long line OK",
+        "category": "Platform",
+        "issue": "1M-char line processed in 2.88s",
+        "detail": ""
+      },
+      {
+        "test": "Tab indent OK",
+        "category": "Platform",
+        "issue": "Tab-indented code processed (exit 0)",
+        "detail": ""
+      },
+      {
+        "test": "Perfect dashboard passes",
+        "category": "AI Output",
+        "issue": "All checks passed on realistic SaaS dashboard",
+        "detail": ""
+      },
+      {
+        "test": "Typo correctly detected",
+        "category": "AI Output",
+        "issue": "DOM refs check caught getElementById('revenuChart') typo",
+        "detail": ""
+      },
+      {
+        "test": "console.error correctly detected",
+        "category": "AI Output",
+        "issue": "Console errors check caught console.error call",
+        "detail": ""
+      },
+      {
+        "test": "JSON output valid",
+        "category": "AI Output",
+        "issue": "Parsed successfully: score=85, all_passed=True, 4 checks",
+        "detail": ""
+      },
+      {
+        "test": "Installed CLI works from any directory",
+        "category": "PipInstall",
+        "issue": "maestro-guard check passed from /tmp/maestro_install_test_h1okcjsh",
+        "detail": ""
+      },
+      {
+        "test": "JSON works from installed CLI",
+        "category": "PipInstall",
+        "issue": "Score: 85",
+        "detail": ""
+      },
+      {
+        "test": "10MB HTML OK",
+        "category": "LargeInput",
+        "issue": "4.9MB with 1000 script blocks processed in 0.60s",
+        "detail": ""
+      },
+      {
+        "test": "1MB expression OK",
+        "category": "LargeInput",
+        "issue": "0.3MB single expression processed in 0.58s",
+        "detail": ""
+      },
+      {
+        "test": "100K divs OK",
+        "category": "LargeInput",
+        "issue": "0.0MB, 100K nested divs processed in 0.07s",
+        "detail": ""
+      }
+    ]
+  }
+}

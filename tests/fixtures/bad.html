@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Invalid Page</title>
+</head>
+<body>
+  <div id="main"></div>
+
+  <script>
+    function fetchData() {
+      var el = document.getElementById('nonexistent');
+      if (!el) {
+        console.error('Element not found!');
+        return;
+      }
+      el.innerHTML = 'data';
+    }
+
+    function doSomething() {
+    }
+
+    function broken() {
+      var items = [1, 2, 3
+      for (var i = 0; i < items.length; i++) {
+        console.log(items[i]);
+      }
+    }
+  </script>
+</body>
+</html>

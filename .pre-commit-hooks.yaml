@@ -1,0 +1,6 @@
+- id: maestro-guard
+  name: Maestro Guard
+  description: Verify AI-generated HTML/JS files
+  entry: maestro-guard check
+  language: python
+  files: \.html$

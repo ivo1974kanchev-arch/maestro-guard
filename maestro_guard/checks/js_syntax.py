@@ -1,6 +1,7 @@
 """Check for basic JS syntax issues in inline <script> blocks from HTML."""
 
 import re
+import subprocess
 from html.parser import HTMLParser
 
 
@@ -245,6 +246,41 @@ def _strip_strings_and_comments(code: str) -> str:
     return ''.join(result)
 
 
+def _check_with_node(code: str) -> tuple[bool, str]:
+    """Validate JS syntax using Node.js's built-in parser via `node --check`.
+
+    Returns (True, "") on success, (False, error_message) on failure.
+    If Node.js is not installed, returns (True, "") to silently skip.
+    """
+    try:
+        result = subprocess.run(
+            ["node", "--check", "--"],
+            input=code,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        if result.returncode != 0:
+            # Extract the relevant syntax error message
+            stderr = result.stderr.strip()
+            # Node.js errors look like:
+            # "SyntaxError: Unexpected token ';'"
+            # or "[stdin]:1\nlet x = <;\n     ^\n\nSyntaxError: Unexpected token '<'"
+            lines = stderr.split("\n")
+            error_lines = [l for l in lines if "SyntaxError" in l or "Error:" in l]
+            if error_lines:
+                msg = "; ".join(error_lines)
+            else:
+                msg = stderr[:200]
+            return False, f"Node.js syntax error: {msg}"
+        return True, ""
+    except FileNotFoundError:
+        # Node.js is not installed -- silently skip this check
+        return True, ""
+    except subprocess.TimeoutExpired:
+        return True, ""
+
+
 def verify_js_syntax(html_content: str) -> tuple[bool, str, str]:
     """Extract inline <script> blocks from HTML and verify basic JS syntax.
 
@@ -301,6 +337,13 @@ def verify_js_syntax(html_content: str) -> tuple[bool, str, str]:
 
         if all_details:
             return False, " | ".join(all_details), "💡 Fix: Check for missing } or ) in your JavaScript"
+
+        # Secondary check: Node.js syntax validation if node is available
+        for idx, code in enumerate(script_blocks):
+            node_ok, node_msg = _check_with_node(code)
+            if not node_ok:
+                block_label = f"<script> block {idx + 1}" if len(script_blocks) > 1 else "<script> block"
+                return False, f"{block_label}: {node_msg}", "💡 Fix the JavaScript syntax error shown above"
 
         return True, f"All {len(script_blocks)} <script> block(s) pass basic JS syntax checks", ""
 

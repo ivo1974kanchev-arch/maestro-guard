@@ -5,6 +5,7 @@ Runs HTML/JS content through 5 expert reviewer roles using heuristic analysis
 """
 
 import json
+import re
 from typing import Optional
 
 from maestro_guard.review.prompts import ROLES
@@ -147,9 +148,19 @@ class ReviewOrchestrator:
         elif role_key == "business":
             issues, suggestions = self._analyze_business(content)
 
-        # Calculate score: start at 10, subtract 1 per issue (min 0)
-        score = max(0, 10 - len(issues))
-        verdict = "pass" if score >= 6 else "fail"
+        # Calculate severity-weighted score: start at 10
+        # critical=-3pts, major=-2pts, minor=-1pt (min 0)
+        severity_points = 0
+        for issue in issues:
+            sev = ContentImprover()._classify_severity(issue, role_key)
+            if sev == ContentImprover.SEVERITY_CRITICAL:
+                severity_points -= 3
+            elif sev == ContentImprover.SEVERITY_MAJOR:
+                severity_points -= 2
+            else:
+                severity_points -= 1
+        score = max(0, 10 + severity_points)
+        verdict = "pass" if score >= 5 else "fail"
 
         return {
             "role": role_key,
@@ -213,6 +224,56 @@ class ReviewOrchestrator:
         if any(s in lower for s in storage_refs):
             issues.append("Client-side storage detected — ensure no sensitive data is stored")
             suggestions.append("Avoid storing tokens, passwords, or PII in localStorage/sessionStorage")
+
+        # Check for fetch() without .catch() — unhandled promise rejection
+        if re.search(r'\.fetch\s*\(', content) and not re.search(r'\.fetch\s*\([^)]*\)\s*\.\s*catch\s*\(', content, re.DOTALL):
+            # Only flag if there's a .fetch( but no .catch( in the content
+            if '.fetch(' in content and '.catch(' not in content:
+                issues.append("fetch() detected without .catch() — unhandled promise rejection")
+                suggestions.append("Add .catch() to handle fetch failures: fetch(url).then(...).catch(err => ...)")
+
+        # Check for addEventListener without removeEventListener — memory leaks
+        add_count = len(re.findall(r'\.addEventListener\s*\(', content))
+        remove_count = len(re.findall(r'\.removeEventListener\s*\(', content))
+        if add_count > remove_count:
+            issues.append(f"addEventListener() called {add_count}x but removeEventListener() only {remove_count}x — potential memory leak")
+            suggestions.append("Always pair addEventListener() with removeEventListener() in cleanup/teardown")
+
+        # Check for JSON.parse() without try/catch — crash on malformed data
+        if 'JSON.parse(' in content or 'json.parse(' in lower:
+            # Check if there's a try block anywhere near the JSON.parse call
+            has_protection = False
+            for match in re.finditer(r'JSON\s*\.\s*parse\s*\(', content, re.IGNORECASE):
+                start = max(0, match.start() - 200)
+                context = content[start:match.end()].lower()
+                if 'try' in context or 'catch' in context:
+                    has_protection = True
+                    break
+            if not has_protection:
+                issues.append("JSON.parse() detected without try/catch — can crash on malformed JSON")
+                suggestions.append("Wrap JSON.parse() in try/catch: try { JSON.parse(data) } catch(e) { ... }")
+
+        # Check for setInterval without clearInterval — resource leak
+        interval_count = len(re.findall(r'setInterval\s*\(', content))
+        clear_count = len(re.findall(r'clearInterval\s*\(', content))
+        if interval_count > clear_count:
+            issues.append(f"setInterval() called {interval_count}x but clearInterval() only {clear_count}x — potential resource leak")
+            suggestions.append("Always store setInterval() return value and call clearInterval() in cleanup")
+
+        # Check for prototype pollution patterns
+        proto_patterns = [
+            r'__proto__\s*=',
+            r'__proto__\s*:',
+            r'prototype\s*\[',
+            r'Object\.assign\s*\([^)]*__proto__',
+            r'Object\.setPrototypeOf\s*\(',
+            r'\.constructor\.prototype',
+        ]
+        for pattern in proto_patterns:
+            if re.search(pattern, content):
+                issues.append("Prototype pollution pattern detected — can lead to object tampering")
+                suggestions.append("Avoid modifying Object.prototype directly; use Map/WeakMap for dynamic properties")
+                break
 
         return issues, suggestions
 
@@ -381,7 +442,7 @@ class ReviewOrchestrator:
                 break
 
         # Check for page title
-        title_match = __import__('re').search(r'<title>(.*?)</title>', content, __import__('re').IGNORECASE | __import__('re').DOTALL)
+        title_match = re.search(r'<title>(.*?)</title>', content, re.IGNORECASE | re.DOTALL)
         if not title_match or not title_match.group(1).strip():
             issues.append("Missing or empty <title> tag")
             suggestions.append("Add a descriptive <title> tag for SEO and browser tabs")
@@ -405,19 +466,19 @@ class ReviewOrchestrator:
             suggestions.append("Add a favicon for browser tab identification")
 
         # Check for empty or stub functions
-        empty_func_pattern = __import__('re').compile(r'function\s+\w+\s*\([^)]*\)\s*\{\s*\}')
+        empty_func_pattern = re.compile(r'function\s+\w+\s*\([^)]*\)\s*\{\s*\}')
         empty_funcs = empty_func_pattern.findall(content)
         if empty_funcs:
             names = []
             for f in empty_funcs:
-                name_match = __import__('re').search(r'function\s+(\w+)', f)
+                name_match = re.search(r'function\s+(\w+)', f)
                 if name_match:
                     names.append(name_match.group(1))
             issues.append(f"Empty/stub functions found: {', '.join(names[:5])}")
             suggestions.append("Implement all stub functions with real logic")
 
         # Check for hardcoded URLs that might be broken
-        url_pattern = __import__('re').compile(r'href=["\'](https?://[^"\']+)["\']')
+        url_pattern = url_pattern = re.compile(r'href=["\'](https?://[^"\']+)["\']')
         urls = url_pattern.findall(content)
         if urls:
             localhost_urls = [u for u in urls if "localhost" in u or "127.0.0.1" in u]
@@ -497,6 +558,5 @@ class ReviewOrchestrator:
 
 def _looks_like_real_call(content: str, func_name: str) -> bool:
     """Check if a function call looks like real usage (not in a string)."""
-    import re
     pattern = re.compile(r'\b' + re.escape(func_name) + r'\s*\(')
     return bool(pattern.search(content))

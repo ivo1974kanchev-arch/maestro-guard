@@ -16,6 +16,9 @@ class ContentImprover:
     SEVERITY_MINOR = "minor"
     SEVERITY_INFO = "info"
 
+    # Words/phrases that should not trigger false positive severity keyword matches
+    _CRITICAL_EXCLUDE = {"content-security-policy"}
+
     def __init__(self):
         self._issues: list[dict] = []
 
@@ -62,8 +65,13 @@ class ContentImprover:
         ]
 
         issue_lower = issue.lower()
+        # Strip known false-positive phrases before keyword matching
+        stripped = issue_lower
+        for exclude in self._CRITICAL_EXCLUDE:
+            stripped = stripped.replace(exclude, "")
+
         for kw in critical_keywords:
-            if kw in issue_lower:
+            if kw in stripped:
                 return self.SEVERITY_CRITICAL
         for kw in major_keywords:
             if kw in issue_lower:

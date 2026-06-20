@@ -19,19 +19,21 @@ from maestro_guard.checks.handlers import verify_handlers
 from maestro_guard.checks.dom_refs import verify_dom_refs
 from maestro_guard.checks.console_errors import verify_console_errors
 from maestro_guard.checks.fulfillment import verify_fulfillment
+from maestro_guard.checks.dynamic import verify_dynamic
 from maestro_guard.review import ReviewOrchestrator
 
-VERSION = "0.1.0"
+VERSION = "0.2.0"
 PROG = "maestro-guard"
 
 # Weight and display-name configuration for each check
 CHECK_CONFIG = [
-    # (check_key, display_name, weight, verify_func, needs_spec)
-    ("js_syntax", "js_syntax", 25, verify_js_syntax, False),
-    ("handlers_defined", "handlers", 25, verify_handlers, False),
-    ("dom_refs", "dom_refs", 20, verify_dom_refs, False),
-    ("no_console_errors", "console_errors", 15, verify_console_errors, False),
-    ("fulfillment", "fulfillment", 15, verify_fulfillment, True),
+    # (check_key, display_name, weight, verify_func, needs_spec, needs_exec_spec)
+    ("js_syntax", "js_syntax", 25, verify_js_syntax, False, False),
+    ("handlers_defined", "handlers", 25, verify_handlers, False, False),
+    ("dom_refs", "dom_refs", 20, verify_dom_refs, False, False),
+    ("no_console_errors", "console_errors", 15, verify_console_errors, False, False),
+    ("fulfillment", "fulfillment", 10, verify_fulfillment, True, False),
+    ("dynamic_spec", "dynamic_spec", 25, verify_dynamic, False, True),
 ]
 
 # ── Pretty printer ──────────────────────────────────────────────────────
@@ -146,15 +148,26 @@ def _run_single_check(filepath: str, spec_content: str | None, args: argparse.Na
     """Run all checks on a single HTML file and return (results, earned, max_score)."""
     html_content = _read_file_safe(filepath, "HTML file")
 
+    # Read exec spec content if provided
+    exec_spec_content = None
+    if hasattr(args, "exec_spec") and args.exec_spec:
+        exec_spec_content = _read_file_safe(args.exec_spec, "Exec spec file")
+
     results: list[dict] = []
     earned = 0
     max_score = 0
 
-    for check_key, display_name, weight, verify_func, needs_spec in CHECK_CONFIG:
+    for check_key, display_name, weight, verify_func, needs_spec, needs_exec_spec in CHECK_CONFIG:
         # Skip fulfillment if no spec provided
         if needs_spec and spec_content is None:
             if args.verbose:
                 print(f"  [SKIP]  {display_name}  (no spec provided)", file=sys.stderr)
+            continue
+
+        # Skip dynamic spec check if no exec-spec provided
+        if needs_exec_spec and exec_spec_content is None:
+            if args.verbose:
+                print(f"  [SKIP]  {display_name}  (no --exec-spec provided)", file=sys.stderr)
             continue
 
         max_score += weight
@@ -162,6 +175,8 @@ def _run_single_check(filepath: str, spec_content: str | None, args: argparse.Na
         try:
             if needs_spec:
                 passed, detail, suggestion = verify_func(html_content, spec_content)
+            elif needs_exec_spec:
+                passed, detail, suggestion = verify_func(html_content, exec_spec_content)
             else:
                 passed, detail, suggestion = verify_func(html_content)
         except Exception as exc:
@@ -375,6 +390,12 @@ def _build_parser() -> argparse.ArgumentParser:
         metavar="SPEC.md",
         default=None,
         help="Path to a spec/markdown file for fulfillment checking.",
+    )
+    check_parser.add_argument(
+        "--exec-spec",
+        metavar="EXEC_SPEC.md",
+        default=None,
+        help="Path to a dynamic execution spec to verify runtime behavior (requires Playwright).",
     )
     check_parser.add_argument(
         "--json",

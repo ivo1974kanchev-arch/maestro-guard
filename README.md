@@ -1,5 +1,7 @@
 # Maestro Guard — AI Code Verification
 
+[![CI](https://github.com/ivo1974kanchev-arch/maestro-guard/actions/workflows/ci.yml/badge.svg)](https://github.com/ivo1974kanchev-arch/maestro-guard/actions/workflows/ci.yml)
+
 **Zero-dependency CLI tool that checks AI-generated HTML/JS for the bugs LLMs consistently produce.**
 
 Every developer using Cursor, Claude Code, or Copilot has shipped AI code that looked right but had hidden bugs. Maestro Guard catches them in milliseconds — broken DOM references, empty function stubs, console.errors left in production, syntax errors.

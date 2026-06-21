@@ -21,6 +21,7 @@ from maestro_guard.checks.console_errors import verify_console_errors
 from maestro_guard.checks.fulfillment import verify_fulfillment
 from maestro_guard.checks.dynamic import verify_dynamic
 from maestro_guard.review import ReviewOrchestrator
+from maestro_guard.sandbox.runner import SandboxRunner, SandboxResult
 
 VERSION = "0.2.0"
 PROG = "maestro-guard"
@@ -153,6 +154,10 @@ def _run_single_check(filepath: str, spec_content: str | None, args: argparse.Na
     if hasattr(args, "exec_spec") and args.exec_spec:
         exec_spec_content = _read_file_safe(args.exec_spec, "Exec spec file")
 
+    # ── Sandbox mode: run entire check inside Docker ──
+    if getattr(args, "sandbox", False):
+        return _run_sandbox_check(filepath, html_content, spec_content, exec_spec_content, args)
+
     results: list[dict] = []
     earned = 0
     max_score = 0
@@ -199,6 +204,133 @@ def _run_single_check(filepath: str, spec_content: str | None, args: argparse.Na
         })
 
     return results, earned, max_score
+
+
+def _run_sandbox_check(
+    filepath: str,
+    html_content: str,
+    spec_content: str | None,
+    exec_spec_content: str | None,
+    args: argparse.Namespace,
+) -> tuple[list[dict], int, int]:
+    """Run checks inside a Docker sandbox."""
+    runner = SandboxRunner()
+
+    if exec_spec_content:
+        # Dynamic spec check inside sandbox
+        result = runner.run_check(html_content, exec_spec_content)
+    else:
+        # Static checks inside sandbox (run maestro-guard without --exec-spec)
+        import tempfile
+        tmpdir = tempfile.mkdtemp(prefix="maestro-sandbox-cli-")
+        import os
+        html_path = os.path.join(tmpdir, "index.html")
+        with open(html_path, "w", encoding="utf-8") as f:
+            f.write(html_content)
+        spec_arg = ""
+        if spec_content:
+            spec_path = os.path.join(tmpdir, "spec.md")
+            with open(spec_path, "w", encoding="utf-8") as f:
+                f.write(spec_content)
+            spec_arg = " --spec /work/spec.md"
+        import subprocess
+        import shutil
+        cmd = (
+            f"{runner.docker_path} run --rm --network none --read-only "
+            f"--cap-drop ALL --security-opt no-new-privileges "
+            f"-m {runner.memory} --cpus {runner.cpus} "
+            f"-v {tmpdir}:/work:ro "
+            f"{runner.image_tag} check /work/index.html{spec_arg} --json"
+        )
+        proc = subprocess.run(
+            cmd, shell=True, capture_output=True, text=True,
+            timeout=runner.timeout,
+        )
+        shutil.rmtree(tmpdir, ignore_errors=True)
+
+        if proc.returncode not in (0, 1):
+            return _sandbox_error_result(proc.stderr or proc.stdout)
+
+        import json
+        try:
+            data = json.loads(proc.stdout)
+            checks = data.get("checks", [])
+            max_score = data.get("max_score", 100)
+            earned = data.get("score", 0)
+            results = []
+            for c in checks:
+                results.append({
+                    "check_key": c.get("name", "unknown"),
+                    "display_name": c.get("name", "unknown"),
+                    "passed": c.get("passed", False),
+                    "earned_weight": c.get("earned_weight", c.get("max_weight", 0) if c.get("passed") else 0),
+                    "max_weight": c.get("max_weight", 0),
+                    "detail": c.get("detail", ""),
+                    "suggestion": c.get("suggestion", ""),
+                    "issues": c.get("issues", []),
+                })
+            return results, earned, max_score
+        except (json.JSONDecodeError, KeyError) as exc:
+            return _sandbox_error_result(f"Failed to parse sandbox output: {exc}")
+
+    # Parse SandboxResult into check results
+    results = []
+    max_score = 0
+    earned = 0
+
+    # If we got structured JSON from the sandbox result
+    if result.stdout:
+        try:
+            data = json.loads(result.stdout)
+            checks = data.get("checks", [])
+            max_score = data.get("max_score", 100)
+            earned = data.get("score", 0)
+            for c in checks:
+                results.append({
+                    "check_key": c.get("name", "unknown"),
+                    "display_name": c.get("name", "unknown"),
+                    "passed": c.get("passed", False),
+                    "earned_weight": c.get("earned_weight", c.get("max_weight", 0) if c.get("passed") else 0),
+                    "max_weight": c.get("max_weight", 0),
+                    "detail": c.get("detail", ""),
+                    "suggestion": c.get("suggestion", ""),
+                    "issues": c.get("issues", []),
+                })
+            return results, earned, max_score
+        except (json.JSONDecodeError, KeyError):
+            pass
+
+    # Fallback: reconstruct from SandboxResult
+    dynamic_weight = 25
+    max_score = dynamic_weight
+    passed = result.passed
+    earned = dynamic_weight if passed else 0
+    results.append({
+        "check_key": "dynamic_spec",
+        "display_name": "dynamic_spec",
+        "passed": passed,
+        "earned_weight": earned,
+        "max_weight": dynamic_weight,
+        "detail": result.detail,
+        "suggestion": result.suggestion,
+        "issues": [] if passed else [result.detail],
+    })
+    return results, earned, max_score
+
+
+def _sandbox_error_result(error_msg: str) -> tuple[list[dict], int, int]:
+    """Return an error result when sandbox execution fails."""
+    results = [{
+        "check_key": "sandbox",
+        "display_name": "sandbox",
+        "passed": False,
+        "earned_weight": 0,
+        "max_weight": 100,
+        "detail": f"Sandbox execution failed: {error_msg[:200]}",
+        "suggestion": "Ensure Docker is running and the sandbox image is built",
+        "issues": [error_msg],
+    }]
+    return results, 0, 100
 
 
 # ── Commands ────────────────────────────────────────────────────────────
